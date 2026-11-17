@@ -11,5 +11,10 @@ export const dict = {
 
 export type Key = keyof typeof dict
 
-// Only these bases define plural groups; ordinary keys may end in .one or .other.
-export type PluralKey = "sidebar.context.tokens"
+type PluralBase = {
+  [K in Key]: K extends `${infer Base}.one` ? (`${Base}.other` extends Key ? Base : never) : never
+}[Key]
+type Plural<K extends PluralBase> = K
+
+// Explicit plural bases must have English .one/.other forms; ordinary keys may use either suffix.
+export type PluralKey = Plural<"sidebar.context.tokens">

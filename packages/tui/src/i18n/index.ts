@@ -13,13 +13,14 @@ type Args<K extends Key> = [Parameter<(typeof dict)[K]>] extends [never]
 export function createI18n(source: () => Partial<Dictionary> = () => dict, locale: () => string = () => "en-US") {
   const numbers = new Map<string, Intl.NumberFormat>()
   const currencies = new Map<string, Intl.NumberFormat>()
+  const number = (language: string) => {
+    const formatter = numbers.get(language) ?? new Intl.NumberFormat(language)
+    numbers.set(language, formatter)
+    return formatter
+  }
+  const english = (value: number) => number("en-US").format(value)
   const format = {
-    number: (value: number) => {
-      const language = locale()
-      const formatter = numbers.get(language) ?? new Intl.NumberFormat(language)
-      numbers.set(language, formatter)
-      return formatter.format(value)
-    },
+    number: (value: number) => number(locale()).format(value),
     currency: (value: number, currency: string) => {
       const language = locale()
       const key = `${language}:${currency}`
@@ -31,14 +32,15 @@ export function createI18n(source: () => Partial<Dictionary> = () => dict, local
   return {
     format,
     t: <K extends MessageKey>(key: K, ...[params]: Args<K>) => {
-      return interpolate(source()[key] ?? dict[key], params, format.number)
+      const text = source()[key]
+      return interpolate(text ?? dict[key], params, text === undefined ? english : format.number)
     },
     plural: (key: PluralKey, count: number) => {
       const category = new Intl.PluralRules(locale()).select(count)
       const catalog = source()
       const fallback = new Intl.PluralRules("en-US").select(count) === "one" ? "one" : "other"
-      const text = catalog[`${key}.${category}`] ?? catalog[`${key}.other`] ?? dict[`${key}.${fallback}`]
-      return interpolate(text, { count }, format.number)
+      const text = catalog[`${key}.${category}`] ?? catalog[`${key}.other`]
+      return interpolate(text ?? dict[`${key}.${fallback}`], { count }, text === undefined ? english : format.number)
     },
   }
 }

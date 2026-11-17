@@ -23,6 +23,19 @@ test("an incomplete catalog falls back to English per key", () => {
   expect(language.t("dialog.alert.confirm")).toBe("Confirm alert")
 })
 
+test("numeric parameters follow the message language when a translation is missing", () => {
+  const source: { dict: Partial<Dictionary> } = { dict: {} }
+  const language = createI18n(
+    () => source.dict,
+    () => "ru-RU",
+  )
+  expect(language.t("sidebar.context.used", { percent: 12.5 })).toBe("12.5% used")
+  source.dict = { "sidebar.context.used": "Использовано {percent}%" }
+  expect(language.t("sidebar.context.used", { percent: 12.5 })).toBe("Использовано 12,5%")
+  source.dict = {}
+  expect(language.t("sidebar.context.used", { percent: 12.5 })).toBe("12.5% used")
+})
+
 test("translation reads the current source instead of retaining the initial catalog", () => {
   const source: { dict: Partial<Dictionary> } = { dict: {} }
   const language = createI18n(() => source.dict)
@@ -92,6 +105,8 @@ test("plural fallback uses the English category when Russian forms are missing",
   )
   expect(language.plural("sidebar.context.tokens", 21)).toBe("21 tokens")
   expect(language.plural("sidebar.context.tokens", 1)).toBe("1 token")
+  expect(language.plural("sidebar.context.tokens", 1.5)).toBe("1.5 tokens")
+  expect(language.plural("sidebar.context.tokens", 12345.5)).toBe("12,345.5 tokens")
 })
 
 test("a partial Russian catalog without other falls back to English for fractional counts", () => {
@@ -104,7 +119,16 @@ test("a partial Russian catalog without other falls back to English for fraction
     () => "ru-RU",
   )
   expect(language.plural("sidebar.context.tokens", 2)).toBe("2 токена")
-  expect(language.plural("sidebar.context.tokens", 1.5)).toBe("1,5 tokens")
+  expect(language.plural("sidebar.context.tokens", 1.5)).toBe("1.5 tokens")
+})
+
+test("a translated other form keeps the active locale when the selected category is missing", () => {
+  const language = createI18n(
+    () => ({ "sidebar.context.tokens.other": russian["sidebar.context.tokens.other"] }),
+    () => "ru-RU",
+  )
+  expect(language.plural("sidebar.context.tokens", 2)).toBe("2 токена")
+  expect(language.plural("sidebar.context.tokens", 12345.5)).toBe("12\u00a0345,5 токена")
 })
 
 test("translated fixture entries preserve English placeholders without requiring full coverage", () => {
