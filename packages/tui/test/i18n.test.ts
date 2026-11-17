@@ -33,3 +33,26 @@ test("independent catalogs do not change the default English source", () => {
 test("an explicitly empty translation is preserved", () => {
   expect(createI18n(() => ({ "dialog.alert.ok": "" })).t("dialog.alert.ok")).toBe("")
 })
+
+test("sidebar context uses complete messages without changing the English display", () => {
+  expect(i18n.t("sidebar.context.title")).toBe("Context")
+  expect(i18n.t("sidebar.context.tokens", { count: "12,345" })).toBe("12,345 tokens")
+  expect(i18n.t("sidebar.context.used", { percent: 0 })).toBe("0% used")
+  expect(i18n.t("sidebar.context.spent", { amount: "$1.23" })).toBe("$1.23 spent")
+})
+
+test("a translated message can move and repeat a named parameter", () => {
+  const language = createI18n(() => ({ "sidebar.context.tokens": "Tokens: {count} ({count})" }))
+  expect(language.t("sidebar.context.tokens", { count: 42 })).toBe("Tokens: 42 (42)")
+  expect(language.t("sidebar.context.used", { percent: 75 })).toBe("75% used")
+})
+
+test("parameter values stay literal instead of becoming replacement patterns or placeholders", () => {
+  const language = createI18n(() => ({ "sidebar.context.tokens": "{count} / {count}" }))
+  expect(language.t("sidebar.context.tokens", { count: "$& {count}" })).toBe("$& {count} / $& {count}")
+})
+
+test("unknown placeholders do not read inherited properties", () => {
+  const language = createI18n(() => ({ "sidebar.context.tokens": "{count} {toString} {missing}" }))
+  expect(language.t("sidebar.context.tokens", { count: 0 })).toBe("0 {toString} {missing}")
+})
