@@ -10,3 +10,6 @@ export const dict = {
 } as const
 
 export type Key = keyof typeof dict
+
+// Only these bases define plural groups; ordinary keys may end in .one or .other.
+export type PluralKey = "sidebar.context.tokens"

@@ -1,6 +1,15 @@
 import { expect, test } from "bun:test"
 import { createI18n, i18n } from "../src/i18n"
 import type { Dictionary } from "../src/i18n"
+import { dict } from "../src/i18n/en"
+import type { Key } from "../src/i18n/en"
+
+const russian = {
+  "sidebar.context.tokens.one": "{count} токен",
+  "sidebar.context.tokens.few": "{count} токена",
+  "sidebar.context.tokens.many": "{count} токенов",
+  "sidebar.context.tokens.other": "{count} токена",
+} satisfies Partial<Dictionary>
 
 test("the alert catalog preserves the existing English display text", () => {
   expect(i18n.t("dialog.group")).toBe("Dialog")
@@ -70,12 +79,7 @@ test.each([
   [1.5, "1,5 токена"],
 ])("Russian token count %s", (count, expected) => {
   const language = createI18n(
-    () => ({
-      "sidebar.context.tokens.one": "{count} токен",
-      "sidebar.context.tokens.few": "{count} токена",
-      "sidebar.context.tokens.many": "{count} токенов",
-      "sidebar.context.tokens.other": "{count} токена",
-    }),
+    () => russian,
     () => "ru-RU",
   )
   expect(language.plural("sidebar.context.tokens", count)).toBe(expected)
@@ -90,6 +94,29 @@ test("plural fallback uses the English category when Russian forms are missing",
   expect(language.plural("sidebar.context.tokens", 1)).toBe("1 token")
 })
 
+test("a partial Russian catalog without other falls back to English for fractional counts", () => {
+  const language = createI18n(
+    () => ({
+      "sidebar.context.tokens.one": russian["sidebar.context.tokens.one"],
+      "sidebar.context.tokens.few": russian["sidebar.context.tokens.few"],
+      "sidebar.context.tokens.many": russian["sidebar.context.tokens.many"],
+    }),
+    () => "ru-RU",
+  )
+  expect(language.plural("sidebar.context.tokens", 2)).toBe("2 токена")
+  expect(language.plural("sidebar.context.tokens", 1.5)).toBe("1,5 tokens")
+})
+
+test("translated fixture entries preserve English placeholders without requiring full coverage", () => {
+  const placeholders = (text: string) =>
+    [...new Set(Array.from(text.matchAll(/\{(\w+)\}/g), (match) => match[1]))].sort()
+  Object.entries(russian).forEach(([key, value]) => {
+    const base = key.slice(0, key.lastIndexOf("."))
+    const english = dict[key as Key] ?? dict[`${base}.other` as Key]
+    expect(placeholders(value)).toEqual(placeholders(english))
+  })
+})
+
 test("number and currency formatting follow the current catalog locale", () => {
   const state = { locale: "en-US" }
   const language = createI18n(
@@ -101,4 +128,10 @@ test("number and currency formatting follow the current catalog locale", () => {
   state.locale = "ru-RU"
   expect(language.format.number(12345.5)).toBe("12\u00a0345,5")
   expect(language.format.currency(1.23, "USD")).toBe("1,23\u00a0$")
+  expect(language.format.currency(1.23, "EUR")).toBe("1,23\u00a0€")
+  expect(language.format.currency(1.23, "USD")).toBe("1,23\u00a0$")
+  state.locale = "en-US"
+  expect(language.format.number(12345.5)).toBe("12,345.5")
+  expect(language.format.currency(1.23, "EUR")).toBe("€1.23")
+  expect(language.format.currency(1.23, "USD")).toBe("$1.23")
 })
